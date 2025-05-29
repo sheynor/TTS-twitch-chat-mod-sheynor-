@@ -3,8 +3,10 @@ import edge_tts
 import io
 import os
 import pygame
-import tkinter as tk
 import sounddevice as sd
+import tkinter as tk
+import ttkbootstrap as tb
+from ttkbootstrap.constants import *
 from tkinter import messagebox
 
 # Настройки подключения
@@ -12,11 +14,11 @@ SERVER = 'irc.chat.twitch.tv'
 PORT = 6667
 message_queue = asyncio.Queue()
 
-# Глобальные переменные для настроек
+# Глобальные переменные
 selected_device_name = None
 selected_voice = "ru-RU-SvetlanaNeural"
 
-# Получение списка устройств вывода
+# Получение списка аудиоустройств
 def get_audio_output_devices():
     try:
         return [device['name'] for device in sd.query_devices() if device['max_output_channels'] > 0]
@@ -48,14 +50,14 @@ async def speak(text):
     except Exception as e:
         print(f"❌ Ошибка при озвучке: {e}")
 
-# Постоянный воркер озвучки
+# Очередь озвучки
 async def speak_worker():
     while True:
         text = await message_queue.get()
         await speak(text)
         message_queue.task_done()
 
-# Прослушивание Twitch чата
+# Слушаем Twitch чат
 async def listen(NICKNAME, TOKEN, CHANNEL):
     try:
         reader, writer = await asyncio.open_connection(SERVER, PORT)
@@ -95,12 +97,12 @@ async def listen(NICKNAME, TOKEN, CHANNEL):
     finally:
         input("Нажмите Enter для выхода...")
 
-# Основной асинхронный запуск
+# Основной запуск
 async def main_logic(nickname, token, channel):
     asyncio.create_task(speak_worker())
     await listen(nickname, token, channel)
 
-# Обработка кнопки
+# Кнопка подключения
 def on_connect_button_click(entry_nickname, entry_token, voice_var, device_var):
     global selected_voice, selected_device_name
     NICKNAME = entry_nickname.get()
@@ -115,34 +117,42 @@ def on_connect_button_click(entry_nickname, entry_token, voice_var, device_var):
     CHANNEL = f"#{NICKNAME}"
     asyncio.run(main_logic(NICKNAME, TOKEN, CHANNEL))
 
-# Графический интерфейс
+# Современный интерфейс
 def create_interface():
-    root = tk.Tk()
-    root.title("Twitch Chat to Speech")
+    root = tb.Window(themename="cyborg")  # Темы: flatly, minty, vapor, superhero, darkly и др.
+    root.title("🎙️ Twitch Chat to Speech")
+    root.geometry("420x450")
+    root.resizable(False, False)
 
-    tk.Label(root, text="Twitch никнейм:").pack(pady=5)
-    entry_nickname = tk.Entry(root, width=40)
+    tb.Label(root, text="👤 Twitch никнейм:", font=("Segoe UI", 10)).pack(pady=(20, 5))
+    entry_nickname = tb.Entry(root, width=30, bootstyle="info")
     entry_nickname.pack()
 
-    tk.Label(root, text="OAuth токен:").pack(pady=5)
-    entry_token = tk.Entry(root, width=40, show="*")
+    tb.Label(root, text="🔒 OAuth токен:", font=("Segoe UI", 10)).pack(pady=(15, 5))
+    entry_token = tb.Entry(root, width=30, show="*", bootstyle="info")
     entry_token.pack()
 
-    tk.Label(root, text="Голос:").pack(pady=5)
+    tb.Label(root, text="🗣️ Голос:", font=("Segoe UI", 10)).pack(pady=(15, 5))
     voice_var = tk.StringVar(value="ru-RU-SvetlanaNeural")
-    voice_menu = tk.OptionMenu(root, voice_var, "ru-RU-SvetlanaNeural", "ru-RU-DmitryNeural")
+    voice_menu = tb.OptionMenu(root, voice_var, "ru-RU-SvetlanaNeural", "ru-RU-DmitryNeural", bootstyle="dark")
     voice_menu.pack()
 
-    tk.Label(root, text="Аудиовыход:").pack(pady=5)
+    tb.Label(root, text="🔊 Аудиовыход:", font=("Segoe UI", 10)).pack(pady=(15, 5))
     devices = get_audio_output_devices()
     device_var = tk.StringVar(value=devices[0])
-    device_menu = tk.OptionMenu(root, device_var, *devices)
+    device_menu = tb.OptionMenu(root, device_var, *devices, bootstyle="dark")
     device_menu.pack()
 
-    tk.Button(root, text="Подключиться", command=lambda:
-              on_connect_button_click(entry_nickname, entry_token, voice_var, device_var)).pack(pady=20)
+    tb.Button(
+        root,
+        text="🚀 Подключиться",
+        command=lambda: on_connect_button_click(entry_nickname, entry_token, voice_var, device_var),
+        bootstyle="success",
+        width=25
+    ).pack(pady=30)
 
     root.mainloop()
 
+# Запуск
 if __name__ == "__main__":
     create_interface()
