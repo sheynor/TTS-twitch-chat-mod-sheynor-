@@ -8,6 +8,31 @@ import tkinter as tk
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 from tkinter import messagebox
+import threading
+import pystray
+from PIL import Image, ImageDraw
+
+# Трей
+def create_tray_icon(root):
+    def on_exit(icon, item):
+        icon.stop()
+        root.quit()
+
+    def on_restore(icon, item):
+        root.after(0, lambda: root.deiconify())
+
+    image = Image.new('RGB', (64, 64), color=(145, 70, 255))  # Twitch фиолетовый
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((8, 8, 56, 56), fill=(255, 255, 255))
+
+    menu = pystray.Menu(
+        pystray.MenuItem("Открыть", on_restore),
+        pystray.MenuItem("Выход", on_exit)
+    )
+
+    icon = pystray.Icon("Twitch TTS", image, "Twitch TTS", menu)
+    threading.Thread(target=icon.run, daemon=True).start()
+
 
 # Настройки подключения
 SERVER = 'irc.chat.twitch.tv'
@@ -21,7 +46,15 @@ selected_voice = "ru-RU-SvetlanaNeural"
 # Получение списка аудиоустройств
 def get_audio_output_devices():
     try:
-        return [device['name'] for device in sd.query_devices() if device['max_output_channels'] > 0]
+        seen = set()
+        devices = []
+        for device in sd.query_devices():
+            name = device['name']
+            if device['max_output_channels'] > 0 and name not in seen:
+                seen.add(name)
+                devices.append(name)
+        return devices
+
     except Exception as e:
         print(f"❌ Не удалось получить устройства вывода: {e}")
         return ["Default"]
@@ -103,7 +136,7 @@ async def main_logic(nickname, token, channel):
     await listen(nickname, token, channel)
 
 # Кнопка подключения
-def on_connect_button_click(entry_nickname, entry_token, voice_var, device_var):
+def on_connect_button_click(entry_nickname, entry_token, voice_var, device_var, root):
     global selected_voice, selected_device_name
     NICKNAME = entry_nickname.get()
     TOKEN = entry_token.get()
@@ -115,7 +148,17 @@ def on_connect_button_click(entry_nickname, entry_token, voice_var, device_var):
         return
 
     CHANNEL = f"#{NICKNAME}"
-    asyncio.run(main_logic(NICKNAME, TOKEN, CHANNEL))
+
+    # Скрытие окна и запуск трея
+    root.withdraw()
+    create_tray_icon(root)
+
+    # Запуск логики в отдельном потоке
+    threading.Thread(
+        target=lambda: asyncio.run(main_logic(NICKNAME, TOKEN, CHANNEL)),
+        daemon=True
+    ).start()
+
 
 # Современный интерфейс
 def create_interface():
@@ -134,8 +177,17 @@ def create_interface():
 
     tb.Label(root, text="🗣️ Голос:", font=("Segoe UI", 10)).pack(pady=(15, 5))
     voice_var = tk.StringVar(value="ru-RU-SvetlanaNeural")
-    voice_menu = tb.OptionMenu(root, voice_var, "ru-RU-SvetlanaNeural", "ru-RU-DmitryNeural", bootstyle="dark")
-    voice_menu.pack()
+    voice_menu = tb.OptionMenu(
+    root,
+    voice_var,
+    "ru-RU-SvetlanaNeural",
+    "ru-RU-SvetlanaNeural",
+    "ru-RU-DmitryNeural",
+    bootstyle="dark"
+    )
+    voice_menu.config(width=25)  # фикс ширина
+    voice_menu.pack(padx=20, fill='x')
+
 
     tb.Label(root, text="🔊 Аудиовыход:", font=("Segoe UI", 10)).pack(pady=(15, 5))
     devices = get_audio_output_devices()
@@ -144,12 +196,13 @@ def create_interface():
     device_menu.pack()
 
     tb.Button(
-        root,
-        text="🚀 Подключиться",
-        command=lambda: on_connect_button_click(entry_nickname, entry_token, voice_var, device_var),
-        bootstyle="success",
-        width=25
+    root,
+    text="🚀 Подключиться",
+    command=lambda: on_connect_button_click(entry_nickname, entry_token, voice_var, device_var, root),
+    bootstyle="success",
+    width=25
     ).pack(pady=30)
+
 
     root.mainloop()
 

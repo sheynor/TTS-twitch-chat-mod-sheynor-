@@ -1,5 +1,5 @@
 #доработки от sheynor43
-pip install edge-tts pygame sounddevice ttkbootstrap
+pip install edge-tts pygame sounddevice ttkbootstrap pystray pillow
 немного оптимизирован процесс озвучки: текст передается напрямую, без создания и озвучивания файла
 добавлена возможность выбора мужского голоса
 добавлена возможность выбора вывода (выводишь в виртуальный кабель и настраиваешь его в обс)
